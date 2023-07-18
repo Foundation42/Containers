@@ -26,9 +26,9 @@
 #include <functional>
 #include <cassert>
 
-// Template class for a probabilistic map.
+// Template class for an ordered map.
 template <typename Key_t, typename Value_t>
-class ProbabalisticMap
+class OrderedMap
 {
 private:
     // Structure for a node in the map.
@@ -36,7 +36,6 @@ private:
     {
         Key_t Key;
         Value_t Value;
-        std::size_t Probability { 0 };
         Node* Next { nullptr };
     };
 
@@ -45,10 +44,10 @@ private:
 
 public:
     // Default constructor.
-    ProbabalisticMap() = default;
+    OrderedMap() = default;
 
     // Copy constructor.
-    ProbabalisticMap(const ProbabalisticMap& other)
+    OrderedMap(const OrderedMap& other)
     {
         // Copy each item from the other map.
         other.ForEach([this](const auto& lhs, const auto& rhs)
@@ -59,7 +58,7 @@ public:
     }
 
     // Move constructor.
-    ProbabalisticMap(ProbabalisticMap&& other) noexcept :
+    OrderedMap(OrderedMap&& other) noexcept :
         Head(std::move(other.Head)),
         ItemCount(std::move(other.ItemCount))
     {
@@ -67,10 +66,16 @@ public:
     }
 
     // Destructor.
-    ~ProbabalisticMap()
+    ~OrderedMap()
     {
         // Clear the map.
         this->Clear();
+    }
+
+    // Get the head of the map.
+    Node* GetHead() const
+    {
+        return this->Head;
     }
 
     // Clear all items from the map.
@@ -87,6 +92,12 @@ public:
 
         this->Head = nullptr;
         this->ItemCount = 0;
+    }
+
+    // Get the number of items in the map.
+    std::size_t Count() const
+    {
+        return this->ItemCount;
     }
 
     // Using declaration for a function that takes a key.
@@ -121,40 +132,11 @@ public:
         }
     }
 
-    // Get the node at the given index in the map.
-    Node* GetAt(std::size_t index)
+    // Find the node with the given key, or create one if it does not exist.
+    int FindOrCreate(const Key_t& key, const Value_t& value)
     {
-        Node* current { this->Head };
+        auto itemIndex { 0 };
 
-        for (std::size_t i = 0; i <= index; i++)
-        {
-            if (current == nullptr)
-                break;
-            
-            if (i == index)
-                return current;
-            
-            current = current->Next;
-        }
-
-        return nullptr;           
-    }
-
-    // Insert a new node with the given key at the front of the map.
-    Node* PushNodeAtFront(const Key_t& key) 
-    {
-        auto newNode { new Node() };
-        newNode->Key = key;
-        newNode->Next = this->Head;
-        this->Head = newNode;
-        this->ItemCount++;
-
-        return newNode;
-    }
-
-    // Find the node with the given key in the map.
-    Node* Find(const Key_t& key) const
-    {
         Node* current { this->Head };
         Node* previous { nullptr };
     
@@ -164,25 +146,50 @@ public:
             // Check if we found it.
             if (current->Key == key)
             {
-                // If node at the front we are done.
-                if (previous == nullptr)
-                    return current;
-
-                // Update the probability.
-                current->Probability++;
-
-                // Move it to the front if its probability is higher than the front node.
-                if (current->Probability < this->Head->Probability)
-                    return current;
-
-                previous->Next = current->Next;
-                current->Next = this->Head;
-                this->Head = current;
-
-                return current;
+                // Return the index if we found it.
+                return itemIndex;
             }
 
             previous = current;
+            current = current->Next;
+            itemIndex++;
+        }
+
+        // We couldn't find it, so create it here.
+        auto newNode { new Node() };
+        newNode->Key = key;
+        newNode->Value = value;
+
+        // If this is the first node, set it as the head.
+        // Otherwise, add it after the previous node.
+        if (previous == nullptr)
+        {
+            this->Head = newNode;
+        }
+        else
+        {
+            previous->Next = newNode;
+        }
+
+        this->ItemCount++;
+
+        return itemIndex;
+    }
+
+    // Find the node with the given key.
+    Node* FindIt(const Key_t& key) const
+    {
+        Node* current { this->Head };
+    
+        // Search through the nodes.
+        while (current != nullptr)
+        {
+            // Return the node if we found it.
+            if (current->Key == key)
+            {
+                return current;
+            }
+
             current = current->Next;
         }
 
@@ -190,43 +197,67 @@ public:
         return nullptr;
     }
 
-    // Get the number of items in the map.
-    std::size_t Count() const
+    // Find the index of the node with the given key.
+    int FindIndex(const Key_t& key) const
     {
-        return this->ItemCount;
+        auto itemIndex { 0 };
+
+        Node* current { this->Head };
+    
+        // Search through the nodes.
+        while (current != nullptr)
+        {
+            // Return the index if we found it.
+            if (current->Key == key)
+            {
+                return itemIndex;
+            }
+
+            current = current->Next;
+            itemIndex++;
+        }
+
+        // We couldn't find it.
+        return -1;
     }
 
-    // Find the node with the given key, or create one if it does not exist.
-    Node* FindOrCreate(const Key_t& key)
+    // Get the node at the given index in the map.
+    Node* GetAt(std::size_t index)
     {
-        auto node { this->Find(key) };
+        Node* current { this->Head };
 
-        if (node != nullptr)
-            return node;
+        for (auto i = 0u; i < index; ++i)
+            current = current->Next;
 
-        // If we couldn't find it, create one at the front.
-        return PushNodeAtFront(key);
+        return current;
     }
 
     // Set the value for the given key in the map.
-    void Set(const Key_t& key, const Value_t& value)
+    std::size_t Set(const Key_t& key, const Value_t& value)
     {
-        auto node { this->FindOrCreate(key) };
-        node->Value = value;
+        auto nodeIndex { this->FindOrCreate(key, value) };
+        return nodeIndex;
     }
 
     // Get the value for the given key in the map.
     Value_t* Get(const Key_t& key) const
     {
-        auto node { this->Find(key) };
+        auto node { this->FindIt(key) };
         if (node == nullptr)
             return nullptr;
 
         return &node->Value;
     }
 
+    // Check if the map contains the given key.
+    bool Exists(const Key_t& key) const
+    {
+        auto nodeIndex { this->FindIndex(key) };
+        return nodeIndex != -1;
+    }
+
     // Overloaded << operator for merging another map into this one.
-    ProbabalisticMap& operator<<(const ProbabalisticMap& other)
+    OrderedMap& operator<<(const OrderedMap& other)
     {
         assert(&other != this);
 
@@ -241,7 +272,7 @@ public:
     }
 
     // Overloaded = operator for copying another map into this one.
-    ProbabalisticMap& operator=(const ProbabalisticMap& other)
+    OrderedMap& operator=(const OrderedMap& other)
     {
         assert(&other != this);
         
@@ -257,7 +288,7 @@ public:
     }
 
     // Overloaded = operator for moving another map into this one.
-    ProbabalisticMap& operator=(ProbabalisticMap&& other) noexcept
+    OrderedMap& operator=(OrderedMap&& other) noexcept
     {
         assert(&other != this);
 
