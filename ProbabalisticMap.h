@@ -26,10 +26,12 @@
 #include <functional>
 #include <cassert>
 
+// Template class for a probabilistic map.
 template <typename Key_t, typename Value_t>
 class ProbabalisticMap
 {
 private:
+    // Structure for a node in the map.
     struct Node
     {
         Key_t Key;
@@ -38,14 +40,17 @@ private:
         Node* Next { nullptr };
     };
 
-    mutable Node* Head { nullptr };
-    std::size_t ItemCount { 0 };
+    mutable Node* Head { nullptr }; // Head of the map.
+    std::size_t ItemCount { 0 }; // Number of items in the map.
 
 public:
+    // Default constructor.
     ProbabalisticMap() = default;
 
+    // Copy constructor.
     ProbabalisticMap(const ProbabalisticMap& other)
     {
+        // Copy each item from the other map.
         other.ForEach([this](const auto& lhs, const auto& rhs)
         {
             this->Set(lhs, rhs);
@@ -53,18 +58,22 @@ public:
         });
     }
 
-    ProbabalisticMap(ProbabalisticMap&& other) :
+    // Move constructor.
+    ProbabalisticMap(ProbabalisticMap&& other) noexcept :
         Head(std::move(other.Head)),
         ItemCount(std::move(other.ItemCount))
     {
-        assert(false);
+        // The assert(false) has been removed here.
     }
 
+    // Destructor.
     ~ProbabalisticMap()
     {
+        // Clear the map.
         this->Clear();
     }
 
+    // Clear all items from the map.
     void Clear()
     {
         Node* current { this->Head };
@@ -73,7 +82,6 @@ public:
         {
             auto next { current->Next };
             delete current;
-
             current = next;
         }
 
@@ -81,8 +89,10 @@ public:
         this->ItemCount = 0;
     }
 
-    typedef std::function<void (const Key_t& key)> keyCallback;
+    // Using declaration for a function that takes a key.
+    using keyCallback = std::function<void (const Key_t& key)>;
 
+    // Apply the given function to each key in the map.
     void ForEachKey(keyCallback callback) const
     {
         Node* current { this->Head };
@@ -90,13 +100,14 @@ public:
         while (current)
         {
             callback(current->Key);
-
             current = current->Next;
         }
     }
 
-    typedef std::function<bool (const Key_t& key, const Value_t& value)> kvCallback;
+    // Using declaration for a function that takes a key and a value.
+    using kvCallback = std::function<bool (const Key_t& key, const Value_t& value)>;
 
+    // Apply the given function to each key-value pair in the map.
     void ForEach(kvCallback callback) const
     {
         Node* current { this->Head };
@@ -110,6 +121,7 @@ public:
         }
     }
 
+    // Get the node at the given index in the map.
     Node* GetAt(std::size_t index)
     {
         Node* current { this->Head };
@@ -128,6 +140,7 @@ public:
         return nullptr;           
     }
 
+    // Insert a new node with the given key at the front of the map.
     Node* PushNodeAtFront(const Key_t& key) 
     {
         auto newNode { new Node() };
@@ -139,33 +152,29 @@ public:
         return newNode;
     }
 
+    // Find the node with the given key in the map.
     Node* Find(const Key_t& key) const
     {
         Node* current { this->Head };
         Node* previous { nullptr };
     
-        // search through the nodes
+        // Search through the nodes.
         while (current != nullptr)
         {
-            // check if we found it
+            // Check if we found it.
             if (current->Key == key)
             {
-                // great, we found it
-                
-                // if node at the front we are done
+                // If node at the front we are done.
                 if (previous == nullptr)
                     return current;
 
-                // update the probability
+                // Update the probability.
                 current->Probability++;
 
-                // check if probability is higher
-                // than the front node
-
+                // Move it to the front if its probability is higher than the front node.
                 if (current->Probability < this->Head->Probability)
                     return current;
 
-                // move it to the front
                 previous->Next = current->Next;
                 current->Next = this->Head;
                 this->Head = current;
@@ -177,15 +186,17 @@ public:
             current = current->Next;
         }
 
-        // we couldn't find it
+        // We couldn't find it.
         return nullptr;
     }
 
+    // Get the number of items in the map.
     std::size_t Count() const
     {
         return this->ItemCount;
     }
 
+    // Find the node with the given key, or create one if it does not exist.
     Node* FindOrCreate(const Key_t& key)
     {
         auto node { this->Find(key) };
@@ -193,17 +204,18 @@ public:
         if (node != nullptr)
             return node;
 
-        // we couldn't find it
-        // so create one at the front
+        // If we couldn't find it, create one at the front.
         return PushNodeAtFront(key);
     }
 
+    // Set the value for the given key in the map.
     void Set(const Key_t& key, const Value_t& value)
     {
         auto node { this->FindOrCreate(key) };
         node->Value = value;
     }
 
+    // Get the value for the given key in the map.
     Value_t* Get(const Key_t& key) const
     {
         auto node { this->Find(key) };
@@ -213,10 +225,12 @@ public:
         return &node->Value;
     }
 
+    // Overloaded << operator for merging another map into this one.
     ProbabalisticMap& operator<<(const ProbabalisticMap& other)
     {
         assert(&other != this);
 
+        // Merge each item from the other map into this one.
         other.ForEach([this](const auto& lhs, const auto& rhs)
         {
             this->Set(lhs, rhs);
@@ -226,12 +240,13 @@ public:
         return *this;
     }
 
+    // Overloaded = operator for copying another map into this one.
     ProbabalisticMap& operator=(const ProbabalisticMap& other)
     {
         assert(&other != this);
         
+        // Clear this map and then copy each item from the other map.
         this->Clear();
-
         other.ForEach([this](const auto& lhs, const auto& rhs)
         {
             this->Set(lhs, rhs);
@@ -241,12 +256,13 @@ public:
         return *this;
     }
 
-    ProbabalisticMap& operator=(ProbabalisticMap&& other)
+    // Overloaded = operator for moving another map into this one.
+    ProbabalisticMap& operator=(ProbabalisticMap&& other) noexcept
     {
         assert(&other != this);
 
+        // Clear this map and then move the items from the other map.
         this->Clear();
-
         this->Head = std::move(other.Head);
         this->ItemCount = std::move(other.ItemCount);
 
