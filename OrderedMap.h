@@ -19,8 +19,8 @@
  * 
 *************************************************************************/
 
-#ifndef Foundation42_ProbabalisticMap_H
-#define Foundation42_ProbabalisticMap_H
+#ifndef Foundation42_OrderedMap_H
+#define Foundation42_OrderedMap_H
 
 #include <cstdint>
 #include <functional>
@@ -301,4 +301,4 @@ public:
     }
 };
 
-#endif // Foundation42_ProbabalisticMap_H
+#endif // Foundation42_OrderedMap_H
